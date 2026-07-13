@@ -79,6 +79,7 @@ Resources:
               - ec2:DescribeSubnets
               - ec2:DescribeVpcs
               - ec2:DescribeTags
+              - ec2:CreateTags
             Resource: '*'
           - Sid: AllowCreateEC2Instances
             Effect: Allow
