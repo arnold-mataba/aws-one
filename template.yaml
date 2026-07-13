@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Automation Learning
+Parameters:
+
+  ProjectTag:
+    Type: String
+    Default: iam-automation-lab
+    Description: Value applied to the Project tag on every resource, for cost allocation and cleanup.
+
+  TemporaryPasswordLength:
+    Type: Number
+    Default: 16
+    MinValue: 12
+    MaxValue: 128
+    Description: Length of the auto-generated one-time password stored in Secrets Manager.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: General
+        Parameters:
+          - ProjectTag
+          - TemporaryPasswordLength
+    ParameterLabels:
+      ProjectTag:
+        default: Project tag value
+      TemporaryPasswordLength:
+        default: One-time password length
+
+Resources:
+
+  OneTimePasswordSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${AWS::StackName}-iam-onetime-password'
+      Description: Shared one-time console password for lab IAM users. Users must change it at first sign-in.
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "shared-onetime-password"}'
+        GenerateStringKey: password
+        PasswordLength: !Ref TemporaryPasswordLength
+        ExcludeCharacters: '"@/\;''`'
+        RequireEachIncludedType: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+
+  S3ListBucketsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}-s3-list-buckets'
+      Description: Allows listing S3 buckets in the account. No object-level or write access.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowListS3Buckets
+            Effect: Allow
+            Action:
+              - s3:ListAllMyBuckets
+              - s3:GetBucketLocation
+            Resource: '*'
+
+  EC2ListAndCreatePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}-ec2-list-and-create'
+      Description: Allows describing EC2 instances/related
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowDescribeEC2Resources
+            Effect: Allow
+            Action:
+              - ec2:DescribeInstances
+              - ec2:DescribeInstanceStatus
+              - ec2:DescribeImages
+              - ec2:DescribeKeyPairs
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeSubnets
+              - ec2:DescribeVpcs
+              - ec2:DescribeTags
+            Resource: '*'
+          - Sid: AllowCreateEC2Instances
+            Effect: Allow
+            Action:
+              - ec2:RunInstances
+            Resource: '*'
+
+  DenyEC2InstanceCreationPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${AWS::StackName}-deny-ec2-run-instances'
+      Description: Explicit deny on ec2:RunInstances. Overrides the group-level Allow for whichever user it is attached to.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyRunInstances
+            Effect: Deny
+            Action:
+              - ec2:RunInstances
+            Resource: '*'
+
+  S3UserGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-s3-group'
+      ManagedPolicyArns:
+        - !Ref S3ListBucketsPolicy
+
+  EC2UserGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-ec2-group'
+      ManagedPolicyArns:
+        - !Ref EC2ListAndCreatePolicy
+
+  EC2User1:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: ec2-user1
+      Groups:
+        - !Ref EC2UserGroup
+      LoginProfile:
+        Password: !Sub '{{resolve:secretsmanager:${OneTimePasswordSecret}:SecretString:password}}'
+        PasswordResetRequired: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Role
+          Value: ec2-operator
+
+  EC2User2:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: ec2-user2
+      Groups:
+        - !Ref EC2UserGroup
+      ManagedPolicyArns:
+        - !Ref DenyEC2InstanceCreationPolicy
+      LoginProfile:
+        Password: !Sub '{{resolve:secretsmanager:${OneTimePasswordSecret}:SecretString:password}}'
+        PasswordResetRequired: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Role
+          Value: ec2-operator-restricted
+
+  S3User:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: s3-user
+      Groups:
+        - !Ref S3UserGroup
+      LoginProfile:
+        Password: !Sub '{{resolve:secretsmanager:${OneTimePasswordSecret}:SecretString:password}}'
+        PasswordResetRequired: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Role
+          Value: s3-reader
+
+Outputs:
+
+  OneTimePasswordSecretArn:
+    Description: ARN of the Secrets Manager secret holding the shared one-time password. Retrieve the value with `aws secretsmanager get-secret-value`.
+    Value: !Ref OneTimePasswordSecret
+
+  ConsoleSignInUrl:
+    Description: Account-specific IAM console sign-in URL to give to the users.
+    Value: !Sub 'https://${AWS::AccountId}.signin.aws.amazon.com/console'
+
+  EC2GroupName:
+    Value: !Ref EC2UserGroup
+
+  S3GroupName:
+    Value: !Ref S3UserGroup
+
+  EC2User1Name:
+    Value: !Ref EC2User1
+
+  EC2User2Name:
+    Value: !Ref EC2User2
+
+  S3UserName:
+    Value: !Ref S3User
