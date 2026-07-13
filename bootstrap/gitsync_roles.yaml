@@ -82,6 +82,7 @@ Resources:
                   - secretsmanager:DeleteSecret
                   - secretsmanager:DescribeSecret
                   - secretsmanager:GetSecretValue
+                  - secretsmanager:GetRandomPassword
                   - secretsmanager:TagResource
                   - secretsmanager:UntagResource
                   - secretsmanager:PutSecretValue
