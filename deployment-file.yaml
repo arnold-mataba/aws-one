@@ -1,0 +1,8 @@
+template-file-path: template.yaml
+parameters:
+  ProjectTag: iam-automation-lab
+  TemporaryPasswordLength: '16'
+tags:
+  environment: lab
+  owner: arnold
+  managed-by: cloudformation-git-sync
