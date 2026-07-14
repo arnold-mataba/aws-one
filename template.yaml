@@ -93,18 +93,38 @@ Resources:
               - ec2:TerminateInstances
             Resource: '*'
 
-  DenyEC2InstanceCreationPolicy:
+  EC2User2PermissionsBoundary:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub '${AWS::StackName}-deny-ec2-run-instances'
-      Description: Explicit deny on ec2:RunInstances. Overrides the group-level Allow for whichever user it is attached to.
+      ManagedPolicyName: !Sub '${AWS::StackName}-ec2-user2-boundary'
+      Description: Permissions boundary for ec2-user2. 
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Sid: DenyRunInstances
-            Effect: Deny
+          - Sid: AllowDescribeAndTerminateEC2
+            Effect: Allow
             Action:
-              - ec2:RunInstances
+              - ec2:DescribeInstances
+              - ec2:DescribeInstanceStatus
+              - ec2:DescribeImages
+              - ec2:DescribeKeyPairs
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeSubnets
+              - ec2:DescribeVpcs
+              - ec2:DescribeTags
+              - ec2:CreateTags
+              - ec2:DescribeVolumes
+              - ec2:TerminateInstances
+            Resource: '*'
+          - Sid: AllowChangeOwnPassword
+            Effect: Allow
+            Action:
+              - iam:ChangePassword
+            Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:user/${!aws:username}'
+          - Sid: AllowViewPasswordPolicy
+            Effect: Allow
+            Action:
+              - iam:GetAccountPasswordPolicy
             Resource: '*'
 
   S3UserGroup:
@@ -113,6 +133,7 @@ Resources:
       GroupName: !Sub '${AWS::StackName}-s3-group'
       ManagedPolicyArns:
         - !Ref S3ListBucketsPolicy
+        - arn:aws:iam::aws:policy/IAMUserChangePassword
 
   EC2UserGroup:
     Type: AWS::IAM::Group
@@ -120,12 +141,6 @@ Resources:
       GroupName: !Sub '${AWS::StackName}-ec2-group'
       ManagedPolicyArns:
         - !Ref EC2ListAndCreatePolicy
-
-  PasswordChangeGroup:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: PasswordChangeGroup
-      ManagedPolicyArns:
         - arn:aws:iam::aws:policy/IAMUserChangePassword
 
   EC2User1:
@@ -134,7 +149,6 @@ Resources:
       UserName: ec2-user1
       Groups:
         - !Ref EC2UserGroup
-        - !Ref PasswordChangeGroup
       LoginProfile:
         Password: !Sub '{{resolve:secretsmanager:${OneTimePasswordSecret}:SecretString:password}}'
         PasswordResetRequired: true
@@ -150,9 +164,7 @@ Resources:
       UserName: ec2-user2
       Groups:
         - !Ref EC2UserGroup
-        - !Ref PasswordChangeGroup
-      ManagedPolicyArns:
-        - !Ref DenyEC2InstanceCreationPolicy
+      PermissionsBoundary: !Ref EC2User2PermissionsBoundary
       LoginProfile:
         Password: !Sub '{{resolve:secretsmanager:${OneTimePasswordSecret}:SecretString:password}}'
         PasswordResetRequired: true
@@ -168,7 +180,6 @@ Resources:
       UserName: s3-user
       Groups:
         - !Ref S3UserGroup
-        - !Ref PasswordChangeGroup
       LoginProfile:
         Password: !Sub '{{resolve:secretsmanager:${OneTimePasswordSecret}:SecretString:password}}'
         PasswordResetRequired: true
@@ -184,7 +195,6 @@ Resources:
       UserName: s3-user2
       Groups:
         - !Ref S3UserGroup
-        - !Ref PasswordChangeGroup
       LoginProfile:
         Password: !Sub '{{resolve:secretsmanager:${OneTimePasswordSecret}:SecretString:password}}'
         PasswordResetRequired: true
