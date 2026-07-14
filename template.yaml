@@ -81,12 +81,16 @@ Resources:
               - ec2:DescribeTags
               - ec2:CreateTags
               - ec2:DescribeVolumes
-              - ec2:TerminateInstances
             Resource: '*'
           - Sid: AllowCreateEC2Instances
             Effect: Allow
             Action:
               - ec2:RunInstances
+            Resource: '*'
+          - Sid: AllowTerminateEC2Instances
+            Effect: Allow
+            Action:
+              - ec2:TerminateInstances
             Resource: '*'
 
   DenyEC2InstanceCreationPolicy:
@@ -162,6 +166,22 @@ Resources:
     Type: AWS::IAM::User
     Properties:
       UserName: s3-user
+      Groups:
+        - !Ref S3UserGroup
+        - !Ref PasswordChangeGroup
+      LoginProfile:
+        Password: !Sub '{{resolve:secretsmanager:${OneTimePasswordSecret}:SecretString:password}}'
+        PasswordResetRequired: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Role
+          Value: s3-reader
+
+  S3User2:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: s3-user2
       Groups:
         - !Ref S3UserGroup
         - !Ref PasswordChangeGroup
