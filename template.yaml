@@ -204,6 +204,21 @@ Resources:
         - Key: Role
           Value: s3-reader
 
+  S3User3:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: s3-user3
+      Groups:
+        - !Ref S3UserGroup
+      LoginProfile:
+        Password: !Sub '{{resolve:secretsmanager:${OneTimePasswordSecret}:SecretString:password}}'
+        PasswordResetRequired: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Role
+          Value: s3-reader
+
 Outputs:
 
   OneTimePasswordSecretArn:
