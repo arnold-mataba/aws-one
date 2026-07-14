@@ -1,26 +1,15 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   One-time bootstrap: creates the two IAM roles required before a
   CloudFormation Git sync configuration can be created.
-    1) GitSyncConnectionRole - lets the Git sync/CodeConnections service
-       create change sets and manage the EventBridge rule it uses to poll
-       for repo changes. Fixed permission set, reusable across stacks.
-    2) GitSyncStackExecutionRole - the role CloudFormation actually assumes
-       to create/update the resources declared in template.yaml for THIS
-       lab (IAM users/groups/policies + a Secrets Manager secret). Scoped
-       to only what this specific stack needs - not AdministratorAccess.
-  Deploy this once with:
-    aws cloudformation deploy --template-file bootstrap/gitsync-roles.yaml \
-      --stack-name iam-lab-gitsync-bootstrap --capabilities CAPABILITY_NAMED_IAM
 
 Resources:
-
   GitSyncConnectionRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: iam-lab-gitsync-connection-role
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -29,7 +18,7 @@ Resources:
       Policies:
         - PolicyName: GitSyncConnectionPermissions
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Sid: SyncToCloudFormation
                 Effect: Allow
@@ -44,27 +33,27 @@ Resources:
                   - cloudformation:ListChangeSets
                   - cloudformation:ListStacks
                   - cloudformation:ValidateTemplate
-                Resource: '*'
+                Resource: "*"
               - Sid: PolicyForManagedRules
                 Effect: Allow
                 Action:
                   - events:PutRule
                   - events:PutTargets
-                Resource: '*'
+                Resource: "*"
                 Condition:
                   StringEquals:
                     events:ManagedBy: cloudformation.sync.codeconnections.amazonaws.com
               - Sid: PolicyForDescribingRule
                 Effect: Allow
                 Action: events:DescribeRule
-                Resource: '*'
+                Resource: "*"
 
   GitSyncStackExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: iam-lab-gitsync-stack-execution-role
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -73,7 +62,7 @@ Resources:
       Policies:
         - PolicyName: IamLabResourceCreationPermissions
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Sid: ManageSharedSecret
                 Effect: Allow
@@ -85,18 +74,19 @@ Resources:
                   - secretsmanager:TagResource
                   - secretsmanager:UntagResource
                   - secretsmanager:PutSecretValue
-                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*'
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*"
               - Sid: GenerateRandomPassword
                 Effect: Allow
                 Action:
                   - secretsmanager:GetRandomPassword
-                Resource: '*'
+                Resource: "*"
               - Sid: ManageIamGroupsAndPolicies
                 Effect: Allow
                 Action:
                   - iam:CreateGroup
                   - iam:DeleteGroup
                   - iam:GetGroup
+                  - iam:UpdateGroup
                   - iam:CreatePolicy
                   - iam:DeletePolicy
                   - iam:GetPolicy
@@ -109,7 +99,7 @@ Resources:
                   - iam:AttachUserPolicy
                   - iam:DetachUserPolicy
                   - iam:TagPolicy
-                Resource: '*'
+                Resource: "*"
               - Sid: ManageIamUsers
                 Effect: Allow
                 Action:
@@ -125,14 +115,16 @@ Resources:
                   - iam:UpdateLoginProfile
                   - iam:DeleteLoginProfile
                   - iam:GetLoginProfile
-                Resource: '*'
+                  - iam:PutUserPermissionsBoundary
+                  - iam:DeleteUserPermissionsBoundary
+                Resource: "*"
               - Sid: CloudFormationStackReadForNestedOperations
                 Effect: Allow
                 Action:
                   - cloudformation:DescribeStacks
                   - cloudformation:DescribeStackEvents
                   - cloudformation:GetTemplate
-                Resource: '*'
+                Resource: "*"
 
 Outputs:
   GitSyncConnectionRoleArn:

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: IAM Automation Learning
+Description: IAM Automation & IAM  Learning
 Parameters:
 
   ProjectTag:
@@ -97,7 +97,7 @@ Resources:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       ManagedPolicyName: !Sub '${AWS::StackName}-ec2-user2-boundary'
-      Description: Permissions boundary for ec2-user2. 
+      Description: Permissions boundary for ec2-user2.
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
